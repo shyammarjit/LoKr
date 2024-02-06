@@ -160,7 +160,9 @@ def struct_output(args):
     attn_config = "kqvo"
     if(args.unet_tune_mlp):
         attn_config = attn_config + "_ffn"
-    exp = f"lokr_{attn_config}_{args.diffusion_model}_{args.learning_rate}_{args.lora_rank}"
+    if(args.decompose_both):
+        attn_config = attn_config + "_DB"
+    exp = f"lokr_{attn_config}_{args.diffusion_model}_lr{args.learning_rate}_r{args.lora_rank}"
     
     exp_ = os.path.join(dataset_, exp)
     if(os.path.exists(exp_)): pass
@@ -480,6 +482,12 @@ def parse_args(input_args=None):
         help="Define the type of diffusion model to be used",
         choices=["sdxl", "base"],
     )
+    
+
+    parser.add_argument("--decompose_both",
+        default=True,
+        help="Whether low rank decomposition happens into both the metrices or not.",
+    )
 
     parser.add_argument("--unet_tune_mlp",
         action="store_true",
@@ -656,6 +664,7 @@ def encode_prompt(text_encoders, tokenizers, prompt, text_input_ids_list=None, a
     pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
     return prompt_embeds, pooled_prompt_embeds
 
+
 def unet_ffn_within_attn_processors_state_dict(unet):
     """
     Returns:
@@ -668,6 +677,7 @@ def unet_ffn_within_attn_processors_state_dict(unet):
         for parameter_key, parameter in ffn_processor.state_dict().items():
             ffn_processors_state_dict[f"{ffn_processor_key}.{parameter_key}"] = parameter
     return ffn_processors_state_dict
+
 
 def unet_attn_processors_state_dict(unet) -> Dict[str, torch.tensor]:
     """
@@ -881,6 +891,7 @@ def main(args):
             cross_attention_dim=cross_attention_dim, 
             factor=args.factor, # added
             lora_rank=args.lora_rank, # added
+            decompose_both=args.decompose_both, # added
         )
         
         unet_lora_attn_procs[name] = module
@@ -889,7 +900,7 @@ def main(args):
         
     unet.set_attn_processor(unet_lora_attn_procs)
     if(args.unet_tune_mlp): 
-        ffn_info, unet_lora_extended_parameters = unet.set_ffn_processors(factor=args.factor, lora_rank=args.lora_rank)
+        ffn_info, unet_lora_extended_parameters = unet.set_ffn_processors(factor=args.factor, lora_rank=args.lora_rank, decompose_both=args.decompose_both)
         unet_lora_parameters.extend(unet_lora_extended_parameters)
 
     # The text encoder comes from 🤗 transformers, so we cannot directly modify it.
@@ -1526,9 +1537,6 @@ def main(args):
         )
         pipeline = StableDiffusionXLPipeline.from_pretrained(
             args.pretrained_model_name_or_path, vae=vae, revision=args.revision, torch_dtype=weight_dtype,
-            # adapter_type = args.adapter_type,
-            # adapter_low_rank = args.adapter_low_rank,
-            # tune_mlp=args.tune_mlp,
         )
 
         # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
@@ -1545,7 +1553,7 @@ def main(args):
         pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config, **scheduler_args)
 
         # load attention processors (need to pass adapter Type as well)
-        pipeline.load_lora_weights(args.output_dir, factor=args.factor)
+        pipeline.load_lora_weights(args.output_dir, factor=args.factor, decompose_both=args.decompose_both)
 
         # run inference
         images = []

@@ -80,9 +80,9 @@ def make_kron(w1, w2):
 
 class LoKr(nn.Module):
     # Note: This code is taken from https://github.com/KohakuBlueleaf/LyCORIS/blob/main/lycoris/modules/lokr.py
-    def __init__(self, in_features, out_features, network_alpha=None, factor=-1, lora_rank=4, device=None, 
+    def __init__(self, in_features, out_features, network_alpha=None, factor=-1, lora_rank=4, decompose_both=True, 
+        device=None, 
         dtype=None,
-        decompose_both=True,
         use_scalar=False,      
     ):
         # print(factor)
@@ -94,6 +94,8 @@ class LoKr(nn.Module):
         super().__init__()
         self.use_w1 = False
         self.use_w2 = False
+        self.in_features = in_features
+        self.out_features = out_features
 
         # get the Kronecker factors for upper and lower matrix
         in_m, in_n = factorization(in_features, factor) 
@@ -117,7 +119,7 @@ class LoKr(nn.Module):
             # w1 ⊗ (w2_a x w2_b) = (a, b)⊗((c, dim)x(dim, d)) = (a, b)⊗(c, d) = (ac, bd)
         else:
             self.use_w2 = True
-            self.lokr_w2 = nn.Linear(in_n, out_k, out_k, bias=False, device=device, dtype=dtype)
+            self.lokr_w2 = nn.Linear(in_n, out_k, bias=False, device=device, dtype=dtype)
 
         if self.use_w2:
             if use_scalar:
@@ -138,54 +140,12 @@ class LoKr(nn.Module):
             nn.init.kaiming_uniform_(self.lokr_w1_b.weight, a=math.sqrt(5))
         
     def forward(self, hidden_states):
-        # print(self.a1, self.b1, self.a2, self.b2)
-        # print(hidden_states.shape)
-        # print(self.lokr_w1_a.weight.shape, self.lokr_w1_b.weight.shape)
-        # print(self.lokr_w2_a.weight.shape, self.lokr_w2_b.weight.shape)
         # get the down matrix
-        self.down = self.lokr_w1.weight if self.use_w1 else self.lokr_w1_a.weight @ self.lokr_w1_b.weight
+        down = self.lokr_w1.weight if self.use_w1 else self.lokr_w1_a.weight @ self.lokr_w1_b.weight
         # get the up matrix
-        self.up = self.lokr_w2.weight if self.use_w2 else self.lokr_w2_a.weight @ self.lokr_w2_b.weight
-
-        # print(self.down.shape, self.up.shape)
-        weight = make_kron(self.down, self.up)
-
+        up = self.lokr_w2.weight if self.use_w2 else self.lokr_w2_a.weight @ self.lokr_w2_b.weight
+        weight = make_kron(down, up)
         out = hidden_states @ weight.T
-        # print("shyam")
-
-        # orig_dtype = hidden_states.dtype
-        # dtype = self.down.weight.dtype
-        # # dtype = self.down.dtype
-        
-        
-        # # print(self.a1, self.a2, self.b1, self.b2)
-        # # exit()
-        # if len(hidden_states.shape) == 3:
-        #     B1, C, D = hidden_states.size() # get the matrix shape
-        #     hidden_states = hidden_states.view(-1, self.b2, self.a2).contiguous().view(-1, self.a2, self.b2).transpose(1, 2)
-            
-        #     up_hidden_states = self.up.weight@(hidden_states.to(dtype)@self.down.weight)
-        #     # up_hidden_states = @(hidden_states.to(dtype)@self.down)
-        #     # up_hidden_states = torch.matmul(self.up, torch.matmul(hidden_states.to(dtype), self.down))
-            
-        #     up_hidden_states = up_hidden_states.view(B1, C, self.a1*self.b1)
-
-        # else: 
-        #     B1, C = hidden_states.size() # get the matrix shape
-        #     hidden_states = hidden_states.view(B1, self.b2, self.a2)
-        #     hidden_states = hidden_states.view(B1*self.b2, self.a2)
-        #     up_hidden_states = self.up.weight@(self.down(hidden_states.to(dtype)))
-        #     up_hidden_states = up_hidden_states.view(B1, self.b1 * self.a1)
-
-        # # exit()
-        # """new"""
-        # # hidden_states_reshape = hidden_states.view(self.b2, self.a2).contiguous().view(self.a2, self.b2).t()
-        # # down_hidden_states = self.down(hidden_states_reshape.to(dtype))
-        # # up_hidden_states = self.up(down_hidden_states)
-
-        # if self.network_alpha is not None:
-        #     up_hidden_states *= self.network_alpha / self.rank
-
         return out
 
 class LoRALinearLayer(nn.Module):

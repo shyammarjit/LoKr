@@ -863,7 +863,7 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
         return StableDiffusionXLPipelineOutput(images=image)
 
     # Overrride to properly handle the loading and unloading of the additional text encoder.
-    def load_lora_weights(self, pretrained_model_name_or_path_or_dict: Union[str, Dict[str, torch.Tensor]],factor=-1, **kwargs):
+    def load_lora_weights(self, pretrained_model_name_or_path_or_dict: Union[str, Dict[str, torch.Tensor]],factor=-1,decompose_both=True, **kwargs):
         # We could have accessed the unet config from `lora_state_dict()` too. We pass
         # it here explicitly to be able to tell that it's coming from an SDXL
         # pipeline.
@@ -872,8 +872,10 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
             unet_config=self.unet.config,
             **kwargs,
         )
+        # print(factor)
+        # shyammarjit
         
-        self.load_lora_into_unet(state_dict, network_alphas=network_alphas, unet=self.unet, factor=factor)
+        self.load_lora_into_unet(state_dict, network_alphas=network_alphas, unet=self.unet, factor=factor, decompose_both=decompose_both)
 
         text_encoder_state_dict = {k: v for k, v in state_dict.items() if "text_encoder." in k}
         if len(text_encoder_state_dict) > 0:

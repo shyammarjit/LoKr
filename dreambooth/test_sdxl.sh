@@ -5,7 +5,7 @@ export INSTANCE_DIR="/home/shyam/dataset_svdiff/${subjects}"
 
 
 # unet parameters
-factor=4
+factor=-1
 lora_rank=4
 lr=5e-4 
 steps=2
@@ -28,9 +28,9 @@ accelerate launch train_dreambooth_lora_sdxl.py \
     --use_8bit_adam \
     --gradient_checkpointing \
     --enable_xformers_memory_efficient_attention \
-    --unet_tune_mlp \
     --factor=$factor \
     --lora_rank=$lora_rank \
+    --unet_tune_mlp \
 
 # python3 generator.py \
 #     --pretrained_model_name_or_path=$MODEL_NAME \

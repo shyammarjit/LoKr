@@ -644,7 +644,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
         return processors
     
     
-    def set_ffn_processors(self, factor=-1, lora_rank=4):
+    def set_ffn_processors(self, factor=-1, lora_rank=4, decompose_both=True):
         r"""
         Returns:
             `dict` of ffn processors: A dictionary containing all attention processors used in the model with
@@ -659,6 +659,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
             extended_parameters, 
             factor,
             lora_rank,
+            decompose_both,
             processors,
         ):
             if hasattr(module, "set_lora_layer"):
@@ -668,19 +669,19 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
                 if "ff" in name.split("."):
                     args, _ = module.get_config()
                     from .lora import LoKr
-                    module.set_lora_layer(lora_layer=LoKr(args[0], args[1], factor=factor, lora_rank=lora_rank)) 
+                    module.set_lora_layer(lora_layer=LoKr(args[0], args[1], factor=factor, lora_rank=lora_rank, decompose_both=decompose_both)) 
                     
                     processors[f"{name}.lora_layer"] = module.lora_layer                    
                     for param in module.lora_layer.parameters():
                         extended_parameters.append(param)
 
             for sub_name, child in module.named_children():
-                fn_recursive_add_processors(f"{name}.{sub_name}", child, extended_parameters, factor, lora_rank, processors)
+                fn_recursive_add_processors(f"{name}.{sub_name}", child, extended_parameters, factor, lora_rank, decompose_both, processors)
 
             return processors, extended_parameters
 
         for name, module in self.named_children():
-            fn_recursive_add_processors(name, module, extended_parameters, factor, lora_rank, processors)
+            fn_recursive_add_processors(name, module, extended_parameters, factor, lora_rank, decompose_both, processors)
         
         return processors, extended_parameters
 
