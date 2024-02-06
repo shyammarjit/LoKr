@@ -512,7 +512,8 @@ class UNet2DConditionLoadersMixin:
                     lora.load_state_dict(value_dict)
                     non_attn_lora_layers.append((attn_processor, lora))
                 
-                else: 
+                else:
+                    # print(factor, decompose_both)
                     # To handle SDXL.
                     rank_mapping = {}
                     hidden_size_mapping_in, hidden_size_mapping_out = {}, {}
