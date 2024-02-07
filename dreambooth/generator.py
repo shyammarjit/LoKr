@@ -207,41 +207,6 @@ def save_metrics(args, clipi, clipt, from_checkpoint):
     df = pd.concat([df, pd.DataFrame(exp_info, index=[0])], ignore_index=True)
     df.to_csv('data.csv', index=False)
 
-    # delete the upload files on gdrive
-    if(args.delete_and_upload_drive):
-        from googleapiclient.http import MediaFileUpload
-        from Google import Create_Service
-
-        archived = shutil.make_archive(os.path.basename(args.output_dir), 'zip', args.output_dir)
-
-        CLIENT_SECRET_FILE = 'Client_secret.json'
-        API_NAME ='drive'
-        API_VERSION = 'v3'
-        SCOPES = ['https://www.googleapis.com/auth/drive']
-
-        service = Create_Service(CLIENT_SECRET_FILE, API_NAME, API_VERSION, SCOPES)
-
-        # folder_id = '1IqHpR033dnKtgCTrtptj047-LNeKkmxd'
-        folder_id = "1Tt4dhZ8VYF1HMFsQm6ouefIvZrJ6Qk8d"
-        file_name = os.path.basename(archived)
-
-        file_metadata = {
-            'name': file_name,
-            'parents': [folder_id]
-        }
-
-        media = MediaFileUpload(archived, mimetype='application/octet-stream')
-
-        service.files().create(
-            body = file_metadata,
-            media_body = media,
-            fields = 'id'
-        ).execute()
-        print("zip folder uploaded on GDrive and deleted from local.")
-
-
-
-
 
 if __name__ == "__main__":
     # load the clip model
