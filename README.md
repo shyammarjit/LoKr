@@ -8,15 +8,7 @@ conda activate lokr
 
 Install diffuser from Our Space
 ```
-git clone git@github.com:shyammarjit/LoKr.git
 cd LoKr 
-pip install -e ".[torch]"
-```
-
-Install diffuser from HuggingFace
-```
-git clone https://github.com/huggingface/diffusers.git
-cd diffusers 
 pip install -e ".[torch]"
 ```
 
